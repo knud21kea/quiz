@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        .visible {
+            display: inline;
+            cursor: pointer;
+        }
+
+        body {
+            background: darkgray;
+            color: ghostwhite;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 30px;
+            margin-bottom: 10px;
+            color: darkslategray;
+        }
+
+        .info {
+            width: 800px;
+            height: 180px;
+            margin: auto;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .quiz {
+            width: 900px;
+            height: 220px;
+            margin: auto;
+            padding: 10px;
+            text-align: left;
+            font-size: 16px;
+            background-color: rgb(43, 35, 66);
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timed trivia quiz</title>
+</head>
+
+<body>
+    <h2 id="finalScore">Welcome to this timed trivia quiz</h2>
+    <div class="info">
+        There are 10 questions each with 4 possible answers.<br>
+        Time counts down for each question from 30 seconds.<br>
+        Press key 1-4 to select an answer.<br>
+        An incorrect answer gives zero points.<br>
+        An answer after the time has expired gives zero points.<br>
+        A correct answer inside the time limit gives 10 points plus a bonus for remaining time.<br>
+        <br>
+        Press the button to start, or to get the next question. Good luck!<br><br>
+        <button id="next" onclick="javascript:nextQuestion()">Click here when ready</button>
+    </div>
+    <div class="quiz">
+        <div>Your total score is: <span id="score">0</span></div>
+        <div id="qustionNumber"></div>
+        <div id="countdownTimer"></div>
+        <div id="quizBody"></div>
+        <div id="checkAnswer"></div>
+    </div>
+
+    <script>
+        let totalScore = 0;
+        let question = 0;
+        const questionNumber = document.getElementById("qustionNumber");
+        const quizBody = document.getElementById("quizBody");
+        const questionTimer = document.getElementById("countdownTimer");
+        const checkAnswer = document.getElementById("checkAnswer");
+        const showScore = document.getElementById("score");
+        const button = document.getElementById("next");
+        const finalScore = document.getElementById("finalScore");
+
+        function nextQuestion() {
+
+            fetch(`/quiz/${question}`)
+                .then((response) => response.json())
+                .then((quiz) => {
+
+                    button.className = "visible";
+                    let correctAnswerUsed = 0;
+                    let chosenAnswer = false;
+                    //showScore.innerText = totalScore;
+                    questionNumber.innerText = "\n" + "Question number " + (question + 1) + " (Press 1,2,3,4)";
+                    quizBody.innerText = "\n" + removeQuotes(JSON.stringify(quiz.question));
+
+                    const correctAnswer = Math.floor(1 + Math.random() * 4);
+                    for (let i = 1; i < 5; i++) {
+                        let identifier = "\n" + (i) + ": ";
+                        if (i != correctAnswer) {
+                            quizBody.innerText += identifier + removeQuotes(JSON.stringify(quiz.incorrectAnswers[i - 1 - correctAnswerUsed]));;
+                        } else {
+                            correctAnswerUsed = 1;
+                            quizBody.innerText += identifier + removeQuotes(JSON.stringify(quiz.correctAnswer));
+                        }
+                    }
+
+                    question++;
+                    button.className = "hidden"; // prevents loading next question when interval is not cleared
+                    let questionTime = 31;
+                    let questionAswered = false;
+                    const t = setInterval(function () {
+                        questionTime--;
+                        questionTimer.innerText = `Remaining time: ${questionTime}`;
+                        if (questionTime < 1) {
+                            clearInterval(t);
+                        }
+                    }, 1000);
+
+                    waitForKeyPress().then((pressedKey) => {
+                        clearInterval(t);
+                        if (pressedKey == correctAnswer) {
+                            chosenAnswer = true;
+                        }
+                        if (chosenAnswer == true) {
+                            questionTimer.innerText = "Yes:";
+                            if (questionTime > 0) {
+                                totalScore += 10 + Math.ceil(questionTime / 3);
+                            }
+                        } else {
+                            questionTimer.innerText = "No:";
+                        }
+                        questionTimer.innerText += " The correct answer is number: " + correctAnswer + "\n";
+                        questionTimer.innerText += "There were: " + questionTime + " seconds left";
+                        showScore.innerText = totalScore;
+                        if (question < 10) {
+                            button.className = "visible";
+                        } else {
+                            finalScore.innerText = "Your final score is: " + totalScore;
+                        }
+                    })
+                })
+                .catch((error) => {
+                    console.error("Error fetching quiz data:", error);
+                });
+        };
+
+        function waitForKeyPress() {
+            return new Promise((resolve) => {
+                document.addEventListener('keydown', function (event) {
+                    const keyPressed = event.key;
+                    if (['1', '2', '3', '4'].includes(keyPressed)) {
+                        resolve(keyPressed);
+                        document.removeEventListener('keydown', this);
+                    } else {
+                        // Handle unexpected key presses
+                        reject(new Error("Invalid key pressed"));
+                        document.removeEventListener('keydown', this);
+                    }
+                });
+            });
+        }
+
+        function removeQuotes(string) {
+            console.log(string);
+            const length = string.length;
+            return string.substring(1, length - 1);
+        }
+    </script>
+</body>
+
+</html>
